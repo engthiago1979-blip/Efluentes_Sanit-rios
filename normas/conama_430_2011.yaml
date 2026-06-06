@@ -1,0 +1,106 @@
+# =============================================================================
+# Fonte normativa estruturada — Resolução CONAMA nº 430/2011
+# Escopo aplicado: Seção III (Arts. 21-23, esgoto sanitário) + Tabela I (Art. 16, II)
+# Gerado a partir do PDF oficial. PENDENTE de conferência/assinatura por
+# responsável técnico (revisado_por: null) antes de conclusões de enquadramento.
+# =============================================================================
+norma:
+  id: CONAMA-430-2011
+  titulo: "Resolução CONAMA nº 430, de 13 de maio de 2011"
+  publicacao: "DOU nº 92, de 16/05/2011, pág. 89"
+  escopo_aplicado: "Seção III (Art. 21-23) — efluentes de sistemas de tratamento de esgotos sanitários; com Tabela I do Art. 16, II aplicável condicionalmente (Art. 21, §1)"
+  fonte_arquivo: "base_dados/CONAMA_n.430.2011.pdf"
+  sha256_fonte: "327473396a34e4b736e462d30746ee65d9ea11b760e19ced41827b69e2e768e6"
+  status: "extraido_do_pdf_oficial"
+  revisado_por: null
+  data_revisao: null
+
+# Categorias de aplicabilidade para efluente de esgoto sanitário:
+#   obrigatorio_art21    -> condição/padrão específico do Art. 21 (exigível)
+#   condicional_tabela1  -> Tabela I (Art. 16, II); aplicável "a critério do órgão" (Art. 21, §1)
+#   nao_exigivel         -> dispensado para esgoto sanitário (Art. 21, §1)
+parametros:
+
+  # --- Art. 21, I: condições obrigatórias para esgoto sanitário ---
+  PH:
+    rotulo: "pH"
+    tipo: faixa
+    minimo: 5.0
+    maximo: 9.0
+    unidade: ""
+    categoria: obrigatorio_art21
+    citacao: "Art. 21, I, a"
+  TEMPERATURA_DO_EFLUENTE:
+    rotulo: "Temperatura do Efluente"
+    tipo: maximo
+    maximo: 40.0
+    unidade: "°C"
+    categoria: obrigatorio_art21
+    citacao: "Art. 21, I, b"
+    condicao_adicional: "Variação do corpo receptor <= 3°C no limite da zona de mistura (não avaliável sem dado do rio)"
+  MATERIAIS_SEDIMENTAVEIS:
+    rotulo: "Materiais Sedimentáveis"
+    tipo: maximo
+    maximo: 1.0
+    unidade: "mL/L"
+    categoria: obrigatorio_art21
+    citacao: "Art. 21, I, c"
+    nota: "Teste de 1 hora em cone Imhoff; virtualmente ausentes p/ lagos e lagoas"
+  DEMANDA_BIOQUIMICA_DE_OXIGENIO:
+    rotulo: "Demanda Bioquímica de Oxigênio"
+    tipo: maximo
+    maximo: 120.0
+    unidade: "mg/L"
+    categoria: obrigatorio_art21
+    citacao: "Art. 21, I, d"
+    regra_alternativa: "Pode ultrapassar 120 mg/L se eficiência de remoção >= 60% de DBO (requer DBO de entrada) ou estudo de autodepuração"
+  OLEOS_E_GRAXAS:
+    rotulo: "Óleos e Graxas"
+    tipo: maximo
+    maximo: 100.0
+    unidade: "mg/L"
+    categoria: obrigatorio_art21
+    citacao: "Art. 21, I, e"
+    nota: "Substâncias solúveis em hexano (esgoto sanitário). DISTINTO do Art. 16 (20 mg/L minerais / 50 mg/L vegetais)"
+
+  # --- Art. 21, §1: não exigível para esgoto sanitário ---
+  NITROGENIO_AMONIACAL:
+    rotulo: "Nitrogênio Amoniacal Total"
+    tipo: maximo
+    maximo: 20.0
+    unidade: "mg/L"
+    categoria: nao_exigivel
+    citacao: "Art. 16, II (Tabela I) c/c Art. 21, §1"
+    nota: "Padrão de nitrogênio amoniacal total NÃO é exigível para sistemas de tratamento de esgotos sanitários"
+
+  # --- Tabela I (Art. 16, II): aplicável condicionalmente (Art. 21, §1) ---
+  ARSENIO_TOTAL:           {rotulo: "Arsênio Total",            tipo: maximo, maximo: 0.5,  unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  BARIO_TOTAL:             {rotulo: "Bário Total",              tipo: maximo, maximo: 5.0,  unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  BORO_TOTAL:              {rotulo: "Boro Total",               tipo: maximo, maximo: 5.0,  unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  CADMIO_TOTAL:            {rotulo: "Cádmio Total",             tipo: maximo, maximo: 0.2,  unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  CHUMBO_TOTAL:            {rotulo: "Chumbo Total",             tipo: maximo, maximo: 0.5,  unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  CIANETO_TOTAL:           {rotulo: "Cianeto Total",            tipo: maximo, maximo: 1.0,  unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  CIANETO_LIVRE:           {rotulo: "Cianeto Livre",            tipo: maximo, maximo: 0.2,  unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  COBRE_DISSOLVIDO:        {rotulo: "Cobre Dissolvido",         tipo: maximo, maximo: 1.0,  unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  CROMO_HEXAVALENTE:       {rotulo: "Cromo Hexavalente",        tipo: maximo, maximo: 0.1,  unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  CROMO_TRIVALENTE:        {rotulo: "Cromo Trivalente",         tipo: maximo, maximo: 1.0,  unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  ESTANHO_TOTAL:           {rotulo: "Estanho Total",            tipo: maximo, maximo: 4.0,  unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  FERRO_DISSOLVIDO:        {rotulo: "Ferro Dissolvido",         tipo: maximo, maximo: 15.0, unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  FLUORETO_TOTAL:          {rotulo: "Fluoreto Total",           tipo: maximo, maximo: 10.0, unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  MANGANES_DISSOLVIDO:     {rotulo: "Manganês Dissolvido",      tipo: maximo, maximo: 1.0,  unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  MERCURIO_TOTAL:          {rotulo: "Mercúrio Total",           tipo: maximo, maximo: 0.01, unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  NIQUEL_TOTAL:            {rotulo: "Níquel Total",             tipo: maximo, maximo: 2.0,  unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  PRATA_TOTAL:             {rotulo: "Prata Total",              tipo: maximo, maximo: 0.1,  unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  SELENIO_TOTAL:           {rotulo: "Selênio Total",            tipo: maximo, maximo: 0.30, unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  SULFETO_TOTAL:           {rotulo: "Sulfeto",                  tipo: maximo, maximo: 1.0,  unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  ZINCO_TOTAL:             {rotulo: "Zinco Total",              tipo: maximo, maximo: 5.0,  unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  BENZENO:                 {rotulo: "Benzeno",                  tipo: maximo, maximo: 1.2,  unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  CLOROFORMIO:             {rotulo: "Clorofórmio",              tipo: maximo, maximo: 1.0,  unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  DICLOROETENO:            {rotulo: "Dicloroeteno (somatório)", tipo: maximo, maximo: 1.0,  unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  ESTIRENO:                {rotulo: "Estireno",                 tipo: maximo, maximo: 0.07, unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  ETILBENZENO:             {rotulo: "Etilbenzeno",              tipo: maximo, maximo: 0.84, unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  FENOIS_TOTAIS:           {rotulo: "Fenóis Totais",            tipo: maximo, maximo: 0.5,  unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  TETRACLORETO_DE_CARBONO: {rotulo: "Tetracloreto de Carbono",  tipo: maximo, maximo: 1.0,  unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  TRICLOROETENO:           {rotulo: "Tricloroeteno",            tipo: maximo, maximo: 1.0,  unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  TOLUENO:                 {rotulo: "Tolueno",                  tipo: maximo, maximo: 1.2,  unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}
+  XILENO_TOTAL:            {rotulo: "Xileno",                   tipo: maximo, maximo: 1.6,  unidade: "mg/L", categoria: condicional_tabela1, citacao: "Art. 16, II - Tabela I"}

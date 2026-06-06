@@ -18,8 +18,9 @@ O pipeline processa bases brutas de monitoramento e gera produtos executivos (pl
 | **v2** | `pipeline_etes_nesa_v2.ipynb`, `analise_estatistica_nesa_v2.ipynb` | Correções de engenharia: caminhos via `pathlib`, fim da fragmentação de DataFrame, supressão de warnings direcionada, *fallback* de fonte. Gráficos redesenhados (data storytelling). Meses em PT-BR, acentuação e unidade `°C`. |
 | **v2.1** | `analise_estatistica_nesa_v2.ipynb` (cél. 3) | **P95 automatizado e segmentado por UHE** (BM = ETE 01+02; PM = ETE PM+Compacta), substituindo os valores fixos ("hardcoded"). |
 | **v3** | `analise_estatistica_nesa_v3.ipynb` | **4 camadas analíticas novas**: pós-hoc de Dunn, detecção de ruptura (`ruptures`), validação de schema (`pandera`) e outliers por IQR. VMPs marcados como *"conferir na base"*. |
+| **v4** | `analise_estatistica_nesa_v4.ipynb` | **Verificação automatizada dos limites CONAMA 430/11** a partir de fonte normativa estruturada (`normas/conama_430_2011.yaml`) extraída do PDF oficial, com **conformidade amostral** (Art. 24), aplicabilidade por artigo (Art. 21-23 + Tabela I) e rastreabilidade por `sha256`. Limites passam a ser lidos do YAML (fonte única). |
 
-> Os notebooks v1 são mantidos por referência histórica. **O fluxo recomendado é: `pipeline_etes_nesa_v2.ipynb` → `analise_estatistica_nesa_v3.ipynb`.**
+> Os notebooks v1 são mantidos por referência histórica. **O fluxo recomendado é: `pipeline_etes_nesa_v2.ipynb` → `analise_estatistica_nesa_v4.ipynb`.**
 
 ---
 
@@ -124,21 +125,39 @@ Linha com VMP e P95 rotulados diretamente, último ponto anotado, faixa de confo
 & "C:\Users\thiago\anaconda3\python.exe" -m jupyter nbconvert --to notebook --execute --inplace `
   --ExecutePreprocessor.kernel_name=python3 pipeline_etes_nesa_v2.ipynb
 & "C:\Users\thiago\anaconda3\python.exe" -m jupyter nbconvert --to notebook --execute --inplace `
-  --ExecutePreprocessor.kernel_name=python3 analise_estatistica_nesa_v3.ipynb
+  --ExecutePreprocessor.kernel_name=python3 analise_estatistica_nesa_v4.ipynb
 ```
 
 ### Dependências
 `pandas`, `numpy`, `scipy`, `matplotlib`, `seaborn`, `openpyxl`, `pymannkendall`,
-`scikit-posthocs`, `ruptures`, `pandera` *(camadas v3)*.
+`scikit-posthocs`, `ruptures`, `pandera` *(camadas v3)*, `pyyaml` *(fonte normativa v4)*.
 
 ---
 
-## 7. Nota Regulatória (importante)
+## 7. Verificação Automatizada de Limites — CONAMA 430/11 (v4)
 
-Os Valores Máximos Permitidos (VMP) referenciam a Resolução CONAMA 430/11 (Art. 16), porém nos produtos atuais são marcados como **"conferir na base do projeto"** e **não são validados automaticamente** nesta execução. A consulta obrigatória à base documental de normas (prevista na skill `analista-python-ambiental`) depende de um acervo que deve ser disponibilizado localmente; enquanto isso, os limites devem ser conferidos por um responsável técnico antes de qualquer conclusão de enquadramento.
+A v4 substitui o "conferir na base" por uma **validação automatizada e rastreável**, com a célula 4 do `analise_estatistica_nesa_v4.ipynb`.
+
+### 7.1. Fonte normativa estruturada
+Os limites deixam de ser *hardcoded* e passam a residir em **`normas/conama_430_2011.yaml`**, extraído do **PDF oficial** (`base_dados/CONAMA_n.430.2011.pdf`). O arquivo registra, por parâmetro: tipo de regra (`maximo`/`faixa`), valor, unidade, **citação do artigo** e **categoria de aplicabilidade**. Os metadados da norma guardam o `sha256` do PDF; a célula 4 **recalcula e confere o hash** a cada execução (integridade da fonte). Status atual: `extraido_do_pdf_oficial`, com **revisão técnica pendente** (`revisado_por: null`).
+
+### 7.2. Aplicabilidade ao esgoto sanitário (Seção III)
+A engine respeita a natureza do efluente sanitário:
+* **`obrigatorio_art21`** — pH (5–9), Temperatura (<40 °C), Materiais Sedimentáveis (≤1 mL/L), **DBO (≤120 mg/L)** e **Óleos e Graxas (≤100 mg/L)** — *corrige* o valor da Seção II (20/50 mg/L), pois o Art. 21 fixa 100 mg/L para esgoto sanitário.
+* **`condicional_tabela1`** — metais e orgânicos da Tabela I (Art. 16, II), aplicáveis *a critério do órgão ambiental* (Art. 21, §1). *(Correção: Etilbenzeno = 0,84 mg/L.)*
+* **`nao_exigivel`** — **Nitrogênio Amoniacal Total** não é exigível para esgoto sanitário (Art. 21, §1).
+
+### 7.3. Conformidade amostral (Art. 24)
+A verificação é **amostra a amostra** (não por P95), coerente com o automonitoramento do Art. 24: para cada ETE × parâmetro reporta N, nº de **excedências individuais** (com data e valor), % conforme e *status*. Ressalvas codificadas: a alternativa de **≥60% de remoção de DBO** (Art. 21, I, d) não é avaliada (requer DBO de entrada); a condição de **ΔT ≤ 3 °C** do corpo receptor não é avaliável sem dado do rio.
+
+### 7.4. Produtos
+* 📄 **`Relatorio_Conformidade_CONAMA_v4.xlsx`** — abas `Conformidade_Amostral`, `Excedencias_Detalhe` e `Rastreabilidade_Norma` (fonte, `sha256`, status, integridade).
+* 📊 **`Produto5_Conformidade_CONAMA.png`** — painel (heatmap verde→vermelho) de % de amostras conformes por ETE para os obrigatórios do Art. 21.
+
+> ⚠️ A engine automatiza a **comparação**; a **autoridade do limite** depende da assinatura de um responsável técnico no YAML-fonte (`revisado_por`). Arts. 22 (emissário submarino) e 23 (ecotoxicidade) não geram limite numérico aplicável ao lançamento direto em rio.
 
 ## 8. Limitações Conhecidas / Próximos Passos
 * Volumes GRI (`dados_gri`) ainda digitados no código — migrar para leitura de planilha.
 * Balanço de massa de primeira ordem (sem concentração de fundo do rio).
 * P95 segmentado por *pool* simples de amostras — evolução possível: P95 ponderado pela vazão de cada ETE.
-* Validação regulatória automatizada pendente de acervo documental local.
+* Conformidade CONAMA já automatizada (Art. 21-23 + Tabela I); **pendências**: assinatura técnica do YAML, avaliação da eficiência de remoção de DBO (≥60%), condição de ΔT do corpo receptor e padrões do corpo receptor (CONAMA 357) após a zona de mistura.
