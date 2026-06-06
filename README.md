@@ -1,92 +1,144 @@
-# Documentação Técnica e Arquitetura de Dados: Modelagem de Efluentes Sanitários - Norte Energia S.A.
+# Documentação Técnica e Arquitetura de Dados: Modelagem de Efluentes Sanitários — Norte Energia S.A.
 
-Este documento apresenta o memorial descritivo completo dos scripts em Python (Jupyter Notebooks) desenvolvidos para a análise estatística, controle de qualidade (QA/QC) e modelagem hidrodinâmica das Estações de Tratamento de Esgoto (ETEs) das UHEs Belo Monte e Pimental.
+Este documento descreve o pipeline em Python (Jupyter Notebooks) para análise estatística, controle de qualidade (QA/QC) e modelagem hidrodinâmica das Estações de Tratamento de Esgoto (ETEs) das UHEs Belo Monte e Pimental.
 
-O objetivo do pipeline é processar bases de dados brutas e transformá-las em produtos executivos (planilhas e gráficos) que comprovem, matematicamente e visualmente, que o impacto dos lançamentos no Rio Xingu é analiticamente indetectável, atendendo aos padrões da IFC e JGP.
+O pipeline processa bases brutas de monitoramento e gera produtos executivos (planilhas e gráficos) que avaliam, de forma estatística e transparente, o impacto dos lançamentos de efluente sanitário no Rio Xingu frente aos padrões da Resolução CONAMA 430/11.
 
-> 🔗 **Repositório Oficial:** Todos os scripts originais, bases de dados de exemplo e produtos finais gerados descritos neste documento estão integralmente disponibilizados no repositório: [https://github.com/engthiago1979-blip/Efluentes_Sanit-rios](https://github.com/engthiago1979-blip/Efluentes_Sanit-rios).
+> 🔗 **Repositório Oficial:** [https://github.com/engthiago1979-blip/Efluentes_Sanit-rios](https://github.com/engthiago1979-blip/Efluentes_Sanit-rios)
+
+> 🧩 **Skill associada:** O desenvolvimento segue a skill `analista-python-ambiental` (Claude Code) — Analista Ambiental + Desenvolvedor Python Sênior, padronizando stack, QA/QC, identidade visual Norte Energia e rastreabilidade regulatória.
+
+---
+
+## 0. Histórico de Versões
+
+| Versão | Notebook | Principais mudanças |
+|---|---|---|
+| **v1** | `pipeline_etes_nesa.ipynb`, `analise_estatistica_nesa.ipynb` | Versão original: ETL/QA-QC, P95, Mann-Kendall, Kruskal-Wallis, balanço de massa e gráficos. |
+| **v2** | `pipeline_etes_nesa_v2.ipynb`, `analise_estatistica_nesa_v2.ipynb` | Correções de engenharia: caminhos via `pathlib`, fim da fragmentação de DataFrame, supressão de warnings direcionada, *fallback* de fonte. Gráficos redesenhados (data storytelling). Meses em PT-BR, acentuação e unidade `°C`. |
+| **v2.1** | `analise_estatistica_nesa_v2.ipynb` (cél. 3) | **P95 automatizado e segmentado por UHE** (BM = ETE 01+02; PM = ETE PM+Compacta), substituindo os valores fixos ("hardcoded"). |
+| **v3** | `analise_estatistica_nesa_v3.ipynb` | **4 camadas analíticas novas**: pós-hoc de Dunn, detecção de ruptura (`ruptures`), validação de schema (`pandera`) e outliers por IQR. VMPs marcados como *"conferir na base"*. |
+
+> Os notebooks v1 são mantidos por referência histórica. **O fluxo recomendado é: `pipeline_etes_nesa_v2.ipynb` → `analise_estatistica_nesa_v3.ipynb`.**
 
 ---
 
 ## 1. Origem dos Dados de Entrada (Inputs)
 
-Os scripts não inventam cenários; eles processam três matrizes de dados estritamente oficiais:
-
-1.  **Série Histórica Laboratorial:** Laudos físicos e químicos emitidos por laboratórios credenciados, compreendendo o monitoramento das 4 ETEs (01, 02, PM e Compacta). Estes dados alimentam o motor estatístico.
-2.  **Relatório Global de Sustentabilidade (GRI 303-4):** Embutido no dicionário Python (`dados_gri`), traz os volumes mensais exatos (em $m^3/mês$) de descarte de cada ETE, cobrindo a janela temporal do projeto (Jan/24 a Mar/26). São dados assegurados por auditoria externa.
-3.  **Planilha de Vazão Turbinada (`vazão turbinada.xlsx`):** Lida via `pandas.read_excel`, traz os dados oficiais do Operador Nacional do Sistema (ONS), com a vazão em $m^3/s$ turbinada individualmente nas Casas de Força Principal (Belo Monte) e Complementar (Pimental).
+1.  **Série Histórica Laboratorial:** laudos físico-químicos das 4 ETEs (01, 02, PM e Compacta). Lida pelo `pipeline_etes_nesa_v2.ipynb` a partir do arquivo bruto em `base_dados/`.
+2.  **Relatório Global de Sustentabilidade (GRI 303-4):** volumes mensais de descarte (m³/mês) por ETE, Jan/24 a Mar/26, embutidos no dicionário `dados_gri`. *(Atualmente digitados no código; ver "Limitações conhecidas".)*
+3.  **Planilha de Vazão Turbinada (`vazão turbinada.xlsx`):** vazões oficiais do ONS (m³/s) por Casa de Força (Belo Monte e Pimental).
 
 ---
 
 ## 2. Módulo de QA/QC e Tratamento de Dados Censurados
 
-A primeira camada do script lida com a higienização da base de dados laboratorial, focando na eliminação de viés analítico em parâmetros não detectados.
+### 2.1. Tratamento Matemático ($LQ / \sqrt{2}$)
+Valores reportados como "< LQ" (ex.: `< 0,01`) são identificados por expressão regular e substituídos pelo Limite de Quantificação dividido por $\sqrt{2}$ — recomendação da US EPA para minimizar a distorção da variância. **Nunca se converte para zero.** Cada imputação é rastreada em colunas `_IMPUTADO_LQ`.
 
-### 2.1. O Tratamento Matemático ($LQ / \sqrt{2}$)
-Muitos elementos (Metais, VOCs, BTEX) não existem em esgoto doméstico. O laboratório reporta esses valores como "< LQ" (ex: `< 0,01`). O código Python identifica essas strings (Expressões Regulares) e aplica a regra de substituição pelo Limite de Quantificação dividido pela raiz quadrada de 2.
-* **Por que o script faz isso?** Substituir por "zero" subestimaria o risco, e substituir pelo valor integral do LQ puniria a ETE injustamente. A métrica $LQ / \sqrt{2}$ é a recomendação da US EPA para minimizar a distorção da variância (MSE) em análises estatísticas subsequentes.
-
-### 2.2. Produtos Gerados por este Módulo:
-* 📊 **`Heatmap_QAQC_Censurados.png`:** O script gera um Mapa de Calor (usando `seaborn.heatmap`). Nele, cores escuras representam 100% de censura. A função deste gráfico é provar visualmente ao auditor que a matriz é 100% livre de passivos industriais (solventes, metais pesados crônicos).
-* 📄 **`Relatorio_QAQC_Dados_Censurados.xlsx`:** Uma tabela de contingência que cruza as ETEs com os parâmetros, quantificando o percentual exato de censura ao longo da série histórica.
+### 2.2. Produtos
+* 📊 **`Heatmap_QAQC_Censurados.png`** — mapa de calor (`seaborn`) com a fração de amostras censuradas por ETE/parâmetro, ordenado por incidência. Células escuras = maior percentual de não-detecção.
+* 📄 **`Relatorio_QAQC_Dados_Censurados.xlsx`** — tabela ETE × parâmetro com o percentual de censura.
 
 ---
 
-## 3. Módulo de Estatística Básica e Avançada
+## 3. Módulo de Estatística (Básica, Avançada e Camadas v3)
 
-Este módulo analisa a performance interna do tratamento de esgoto, rodando sobre a base de dados tratada no módulo QA/QC.
+Roda sobre a base tratada e cobre todo o escopo CONAMA 430/11.
 
-### 3.1. Estatística Básica (O Racional do Percentil 95)
-O script calcula o Tamanho da Amostra (N), a Média e a Mediana, mas a modelagem extrai especificamente o **Percentil 95 (P95)** (`numpy.percentile(x, 95)`).
-* **Por que o P95?** Em auditorias de risco socioambiental, a média aritmética é rejeitada por mascarar picos pontuais de falha. O P95 atesta a concentração limite em que a ETE opera em 95% do tempo. É o "Pior Cenário Crônico".
+### 3.1. Percentil 95 (P95)
+Calcula N, média, mediana, desvio e o **P95** (`numpy.percentile`), usado como "pior cenário crônico" — a concentração em que a ETE opera em 95% do tempo.
 
-### 3.2. Estatística Avançada: Teste de Mann-Kendall
-* **Como o script faz:** Utiliza o módulo `pymannkendall` para avaliar a série cronológica de resultados de cada ETE.
-* **Por que faz:** É um teste de *Tendência Temporal Não-Paramétrico*. O objetivo é gerar um `p-value`. Se o p-value for $< 0.05$, o script acusa "Tendência de Degradação" ou "Melhora". Isso prova ao auditor se a planta está sofrendo desgaste sazonal ou mantendo a estabilidade.
+### 3.2. Mann-Kendall (tendência temporal)
+`pymannkendall` aplicado à série cronológica de cada ETE; classifica em *Crescente (Piora)*, *Decrescente (Melhora)* ou *Estável* com o respectivo `p-value`. Protegido contra séries sem variância.
 
-### 3.3. Estatística Avançada: Kruskal-Wallis (ANOVA Não-Paramétrico)
-* **Como o script faz:** Utiliza `scipy.stats.kruskal` agrupando os resultados das 4 ETEs no mesmo período.
-* **Por que faz:** O script testa se as 4 ETEs pertencem à mesma "população estatística" baseada em ranqueamento. A função atesta se há uniformidade operacional entre as diferentes plantas e canteiros da Norte Energia.
+### 3.3. Kruskal-Wallis (comparação entre ETEs)
+`scipy.stats.kruskal` testa se as ETEs pertencem à mesma população estatística.
 
-### 3.4. Produto Gerado por este Módulo:
-* 📄 **`Relatorio_Analitico_Mestre.xlsx`:** Planilha consolidada com múltiplas abas (`Estatistica_e_Tendencia` e `Comparativo_Kruskal_Wallis`). Confronta o P95 diretamente com o VMP da Resolução CONAMA 430/11, declarando automaticamente o *status* de "Conforme" ou "Não Conforme".
+### 3.4. 🆕 Camadas analíticas da v3
+* **Pós-hoc de Dunn** (`scikit-posthocs`, ajuste de Holm): executado **somente quando o Kruskal-Wallis é significativo**, identifica **quais pares de ETEs** diferem entre si — o que o teste omnibus sozinho não revela.
+* **Detecção de ruptura / regime-shift** (`ruptures`, PELT/L2 sobre o sinal padronizado): identifica mudanças de patamar na série, indo além da tendência monotônica do Mann-Kendall. As datas das rupturas são marcadas nos gráficos de série temporal.
+* **Validação de schema** (`pandera`): valida tipos e domínios (ETE textual, DATA temporal, parâmetros numéricos ≥ 0) antes da análise. Resultado registrado em aba própria.
+* **Outliers por IQR** (Tukey 1,5×): contagem de outliers por ETE/parâmetro, robusta para dados assimétricos.
+
+> As bibliotecas das camadas novas têm **import defensivo**: se ausentes, a camada é pulada e o restante do pipeline continua.
+
+### 3.5. Produto
+* 📄 **`Relatorio_Analitico_Mestre_v3.xlsx`** — múltiplas abas:
+  `Estatistica_e_Tendencia` (descritiva + P95 + Outliers IQR + Mann-Kendall + nº de rupturas) · `Kruskal_Wallis` · `PostHoc_Dunn` · `Pontos_de_Ruptura` · `Validacao_Schema`.
+  *(O `Relatorio_Analitico_Mestre.xlsx` é o produto equivalente da v2.)*
 
 ---
 
 ## 4. Módulo de Modelagem Hidrodinâmica e Balanço de Massa
 
-Esta é a espinha dorsal do projeto. O algoritmo une o P95 extraído do módulo estatístico com os volumes (GRI) e as vazões turbinadas (ONS).
+### 4.1. Parser temporal e Left Join
+* **`extrair_data_segura()`** converte tanto `Datetime` do Excel quanto strings tipo `Jan/24` para um `Timestamp` absoluto.
+* **Left Join** do GRI com a vazão (`how='left'`) fixa a linha do tempo Jan/24–Mar/26, gerando `NaN` controlados para meses ainda não reportados.
 
-### 4.1. Lógica do Código (Parser Temporal e Left Join)
-* **Super-Parser de Data:** O Excel frequentemente oculta formatos de data americanos. O script possui a função `extrair_data_segura()`, que força a leitura de `Jan/24` ou de um objeto *Datetime* do Excel para um formato Python absoluto.
-* **Left Join:** No momento de fundir (`pd.merge`) o DataFrame do GRI com o DataFrame do Rio, usa-se um `how='left'`. Isso obriga o script a desenhar a linha do tempo estática de Jan/24 a Mar/26, gerando NaNs controlados caso a vazão de Mar/26 ainda não tenha sido reportada. Isso cria gráficos com espaço reservado de forma elegante, provando governança futura.
+### 4.2. Segregação Geográfica
+* **Segmento BM:** $Q_{BeloMonte}$ × (ETE 01 + ETE 02).
+* **Segmento PM:** $Q_{Pimental}$ (TVR) × (ETE PM + ETE Compacta).
 
-### 4.2. Segregação Geográfica (Avanço Metodológico)
-Para evitar que a vazão massiva de Belo Monte mascare o cenário em Pimental, o script divide o processamento:
-* **Segmento BM:** $Q_{BeloMonte}$ cruza *apenas* com ETE 01 + ETE 02.
-* **Segmento PM:** $Q_{Pimental}$ (TVR) cruza *apenas* com ETE PM + Compacta.
+### 4.3. 🆕 P95 Automatizado e Segmentado (v2.1)
+O P95 de DBO, N-Amoniacal e Fósforo usado no balanço **deixou de ser um número fixo** e passa a ser **derivado da base processada, por segmento** (`calcular_p95_segmento`), usando apenas as ETEs daquele segmento — coerente com a segregação dos volumes. A função imprime a **rastreabilidade** (coluna de origem e N) e mantém *fallback* caso a coluna não exista. Isso revelou, por exemplo, que o efluente de Pimental é mais concentrado em DBO que o de Belo Monte — contraste antes mascarado por um P95 único.
 
-### 4.3. Matemática do Balanço de Massa
-1.  **Conversão Volumétrica:** A vazão do rio é convertida no script usando: $V_{rio\ (m^3/m\hat{e}s)} = Q_{m^3/s} \times 86400 \times 30,44$.
-2.  **Fator de Diluição (FD):** $FD = V_{rio} / V_{efluente}$. Quantifica quantos milhões de litros de rio diluem 1L de efluente.
-3.  **Adição de Carga Efetiva ($\Delta C$):** Calcula a concentração real adicionada à coluna d'água: $C_{adicionada\ (mg/L)} = (V_{efluente} \times Concentra\text{ç}\tilde{a}o_{P95}) / V_{rio}$.
+### 4.4. Matemática do Balanço de Massa
+1.  **Conversão volumétrica:** $V_{rio\,(m^3/m\hat{e}s)} = Q_{m^3/s} \times 86400 \times 30{,}44$.
+2.  **Fator de Diluição:** $FD = V_{rio} / V_{efluente}$.
+3.  **Adição de carga efetiva:** $C_{adic} = (V_{efluente} \times P95) / V_{rio}$.
+> Premissas explícitas: concentração de fundo do rio = 0 e mistura completa (estimativa conservadora de primeira ordem).
 
-### 4.4. Produto Gerado por este Módulo:
-* 📄 **`Relatorio_Diluicao_Mestre_Segregado.xlsx`:** A exportação em Excel desta modelagem, exibindo lado a lado a vazão, o volume mensal, o Fator de Diluição e os acréscimos na sexta casa decimal ($0,0000x\ mg/L$) para DBO, Fósforo e Amônia, separados por UHE.
+### 4.5. Produto
+* 📄 **`Relatorio_Diluicao_Mestre_Segregado.xlsx`** — vazão, volume mensal, Fator de Diluição e acréscimos por parâmetro, separados por UHE, incluindo o P95 segmentado utilizado.
 
 ---
 
-## 5. Módulo de Geração Visual (A "Bala de Prata" da Auditoria)
+## 5. Módulo de Geração Visual (Data Storytelling)
 
-A biblioteca `matplotlib.pyplot` foi arquitetada com técnicas de engenharia visual cognitiva, traduzindo a planilha descrita acima em laudos gráficos irrefutáveis.
+Gráficos em `matplotlib` seguindo boas práticas de narrativa de dados: hierarquia tipográfica (manchete + subtítulo com o *insight* quantitativo), *decluttering* (remoção de molduras/grades supérfluas), rotulagem direta, cor com propósito (paleta Norte Energia) e fonte no rodapé. **Eixo temporal em português** (formatador independente de *locale*), acentuação completa e unidade `°C`.
 
-### 5.1. Gráficos de Proporção Hidrodinâmica (Ex: `Produto1A_Diluicao_BeloMonte.png`)
-* **Como é gerado:** Um gráfico de barras (`ax.bar`) onde a altura é o Fator de Diluição dividido por $10^6$ (escala de milhões). A função `ax.bar_label` estampa o número exato flutuando sobre a barra.
-* **Objetivo:** Provar que mesmo no pior mês de seca extrema (linha tracejada calculada pelo `min()` do array), o Xingu oferece proporções multimilionárias para a diluição do efluente sanitário.
+### 5.1. Proporção Hidrodinâmica (ex.: `Produto1A_Diluicao_BeloMonte.png`)
+Barras com o Fator de Diluição (em milhões); o **pior mês** é destacado em cor de alerta com anotação direta. O subtítulo traz o pior cenário histórico.
 
-### 5.2. Gráficos de Impacto Físico vs Risco (A "Bala de Prata Linear")
-O script gera gráficos separados para DBO, Nitrogênio Amoniacal e Fósforo (Ex: `Produto2A_Impacto_DBO_BM.png`), abandonando a escala logarítmica para evidenciar visualmente a insignificância do risco.
-* **O Truque do Eixo Y (`ax.set_ylim`):** O script força o limite vertical superior do gráfico a coincidir com o **Limite de Detecção do Laboratório** (ex: travado em $2,5\ mg/L$ para DBO, onde a detecção começa em $2,0\ mg/L$).
-* **Linha de Efluente (`ax.plot` com `fill_between`):** Como o balanço de massa calculou valores próximos a $0,00002\ mg/L$, a linha e a área preenchida do impacto da ETE ficam perfeitamente coladas no eixo $0.0$.
-* **Anotações Dinâmicas:** A função `ax.annotate` cria uma flecha apontando para o céu indicando: *"Limite CONAMA (120 mg/L) -> Fora de Escala"*. Para o Nitrogênio Amoniacal, a anotação inclui automaticamente o subtexto de isenção legal com base no §1º do Art. 21 da Resolução CONAMA 430/11.
-* **Objetivo Final:** Quando o auditor visualiza o gráfico, ele percebe imediatamente que o impacto orgânico da ETE não apenas atende à lei com folga, mas é **fisicamente incapaz de ser lido por instrumentação analítica moderna**, zerando qualquer alegação de risco à ictiofauna ou risco de eutrofização no TVR e no canal de fuga.
+### 5.2. Impacto vs. Limite de Detecção (ex.: `Produto2A_Impacto_DBO_BM.png`)
+* **Escala fixa** (formato consagrado para o laudo), travada no limite de detecção do laboratório.
+* **Subtítulo honesto:** declara explicitamente o **valor real da adição máxima** e **quantas vezes** ele está abaixo da detecção (ex.: *"adição máxima de 0,00005 mg/L — 40.085× abaixo do limite de detecção"*).
+* Anotação do limite CONAMA, com nota de isenção do §1º do Art. 21 para Nitrogênio Amoniacal.
+
+### 5.3. Séries Temporais (ex.: `Plot_DEMANDA_BIOQUIMICA_DE_OXIGENIO_ETE_01.png`)
+Linha com VMP e P95 rotulados diretamente, último ponto anotado, faixa de conformidade e **marcação vertical dos pontos de ruptura** detectados.
+
+---
+
+## 6. Qualidade de Código e Reprodutibilidade
+
+* **Caminhos:** centralizados numa única `RAIZ` (`pathlib`); basta alterar uma linha para mudar de máquina.
+* **Performance:** colunas de flag/status acumuladas e adicionadas em um único `pd.concat` (fim do `PerformanceWarning` de fragmentação).
+* **Warnings:** supressão **direcionada** (categorias/mensagens específicas), não global.
+* **Portabilidade visual:** fonte com *fallback* (`Segoe UI → Calibri → Arial → DejaVu Sans`) e meses PT-BR sem depender de *locale*.
+* **Exportação:** PNG a 600 dpi; planilhas via `openpyxl`.
+
+### Execução (headless)
+```powershell
+& "C:\Users\thiago\anaconda3\python.exe" -m jupyter nbconvert --to notebook --execute --inplace `
+  --ExecutePreprocessor.kernel_name=python3 pipeline_etes_nesa_v2.ipynb
+& "C:\Users\thiago\anaconda3\python.exe" -m jupyter nbconvert --to notebook --execute --inplace `
+  --ExecutePreprocessor.kernel_name=python3 analise_estatistica_nesa_v3.ipynb
+```
+
+### Dependências
+`pandas`, `numpy`, `scipy`, `matplotlib`, `seaborn`, `openpyxl`, `pymannkendall`,
+`scikit-posthocs`, `ruptures`, `pandera` *(camadas v3)*.
+
+---
+
+## 7. Nota Regulatória (importante)
+
+Os Valores Máximos Permitidos (VMP) referenciam a Resolução CONAMA 430/11 (Art. 16), porém nos produtos atuais são marcados como **"conferir na base do projeto"** e **não são validados automaticamente** nesta execução. A consulta obrigatória à base documental de normas (prevista na skill `analista-python-ambiental`) depende de um acervo que deve ser disponibilizado localmente; enquanto isso, os limites devem ser conferidos por um responsável técnico antes de qualquer conclusão de enquadramento.
+
+## 8. Limitações Conhecidas / Próximos Passos
+* Volumes GRI (`dados_gri`) ainda digitados no código — migrar para leitura de planilha.
+* Balanço de massa de primeira ordem (sem concentração de fundo do rio).
+* P95 segmentado por *pool* simples de amostras — evolução possível: P95 ponderado pela vazão de cada ETE.
+* Validação regulatória automatizada pendente de acervo documental local.

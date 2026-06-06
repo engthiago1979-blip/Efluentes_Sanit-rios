@@ -1,0 +1,11 @@
+# Jupyter
+.ipynb_checkpoints/
+
+# Python
+__pycache__/
+*.pyc
+
+# Scripts auxiliares de build (geradores temporários)
+_build*.py
+_patch*.py
+_insp*.py
