@@ -19,8 +19,9 @@ O pipeline processa bases brutas de monitoramento e gera produtos executivos (pl
 | **v2.1** | `analise_estatistica_nesa_v2.ipynb` (cél. 3) | **P95 automatizado e segmentado por UHE** (BM = ETE 01+02; PM = ETE PM+Compacta), substituindo os valores fixos ("hardcoded"). |
 | **v3** | `analise_estatistica_nesa_v3.ipynb` | **4 camadas analíticas novas**: pós-hoc de Dunn, detecção de ruptura (`ruptures`), validação de schema (`pandera`) e outliers por IQR. VMPs marcados como *"conferir na base"*. |
 | **v4** | `analise_estatistica_nesa_v4.ipynb` | **Verificação automatizada dos limites CONAMA 430/11** a partir de fonte normativa estruturada (`normas/conama_430_2011.yaml`) extraída do PDF oficial, com **conformidade amostral** (Art. 24), aplicabilidade por artigo (Art. 21-23 + Tabela I) e rastreabilidade por `sha256`. Limites passam a ser lidos do YAML (fonte única). |
+| **v5** | `analise_estatistica_nesa_v5.ipynb` | **Corre??o hidrodin?mica (bug fix):** convers?o expl?cita das colunas de vaz?o (`Q_Pimental_m3s`, `Q_BeloMonte_m3s`) para `float64` via `pd.to_numeric(..., errors='coerce')` ap?s leitura do Excel ? corrige `TypeError: can't multiply sequence by non-int of type 'float'` no balan?o de massa quando o Excel entrega as colunas com dtype `object`. |
 
-> Os notebooks v1 são mantidos por referência histórica. **O fluxo recomendado é: `pipeline_etes_nesa_v2.ipynb` → `analise_estatistica_nesa_v4.ipynb`.**
+> Os notebooks v1 são mantidos por referência histórica. **O fluxo recomendado é: `pipeline_etes_nesa_v2.ipynb` → `analise_estatistica_nesa_v5.ipynb`.**
 
 ---
 
@@ -125,7 +126,7 @@ Linha com VMP e P95 rotulados diretamente, último ponto anotado, faixa de confo
 & "C:\Users\thiago\anaconda3\python.exe" -m jupyter nbconvert --to notebook --execute --inplace `
   --ExecutePreprocessor.kernel_name=python3 pipeline_etes_nesa_v2.ipynb
 & "C:\Users\thiago\anaconda3\python.exe" -m jupyter nbconvert --to notebook --execute --inplace `
-  --ExecutePreprocessor.kernel_name=python3 analise_estatistica_nesa_v4.ipynb
+  --ExecutePreprocessor.kernel_name=python3 analise_estatistica_nesa_v5.ipynb
 ```
 
 ### Dependências
